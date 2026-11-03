@@ -185,7 +185,7 @@ class TeaCompiler:
         self.current_file = os.path.basename(file_path)
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 lines = [line.expandtabs(4) for line in f.readlines()]
         except FileNotFoundError:
             raise TeaSyntaxError(f"File not found: {file_path}", 0, self.current_file)
@@ -246,7 +246,7 @@ class TeaCompiler:
             if m:
                 name = m.group(1)
                 params = [p.strip() for p in m.group(2).split(",") if p.strip()]
-                i, body = self.extract_block(lines, i + 1)
+                body, i = self.extract_block(lines, i + 1)
                 self.functions[name] = {"params": params, "body": body}
                 bytecode.append(("FUNC_DEF", name, line_num))
                 continue
@@ -276,10 +276,10 @@ class TeaCompiler:
             m = re.match(r'^if\s*\((.*?)\)\s*\{\s*$', line)
             if m:
                 cond = m.group(1).strip()
-                i, if_body = self.extract_block(lines, i + 1)
+                if_body, i = self.extract_block(lines, i + 1)
                 else_body = []
                 if i < n and lines[i].strip().startswith("else"):
-                    i, else_body = self.extract_block(lines, i + 1)
+                    else_body, i = self.extract_block(lines, i + 1)
                 bytecode.append(("IF", cond, if_body, else_body, line_num))
                 continue
 
@@ -287,7 +287,7 @@ class TeaCompiler:
             m = re.match(r'^loops\s*\((.*?)\)\s*\{\s*$', line)
             if m:
                 cond = m.group(1).strip()
-                i, body = self.extract_block(lines, i + 1)
+                body, i = self.extract_block(lines, i + 1)
                 bytecode.append(("LOOPS", cond, body, line_num))
                 continue
 
@@ -310,7 +310,8 @@ class TeaCompiler:
         return bytecode, i
 
     def extract_block(self, lines, start):
-        return self.parse_block(lines, start, top_level=False)
+        body, next_i = self.parse_block(lines, start, top_level=False)
+        return body, next_i
 
     def eval_expr(self, expr, memory, line_num=None):
         expr = expr.strip()
